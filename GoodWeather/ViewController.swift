@@ -6,6 +6,8 @@
 //
 
 import UIKit
+import RxSwift
+import RxCocoa
 
 class ViewController: UIViewController {
     
@@ -13,13 +15,61 @@ class ViewController: UIViewController {
     @IBOutlet weak var temperatureLabel: UILabel!
     @IBOutlet weak var humidityLable: UILabel!
     
-    
+    let disposedBag = DisposeBag()
 
     override func viewDidLoad() {
         super.viewDidLoad()
-        // Do any additional setup after loading the view.
+        
+        self.cityNameTextField.rx.value
+            .subscribe (onNext: { city in
+                
+                if let city = city {
+                    if city.isEmpty {
+                        self.displayWeather(nil)
+                    }
+                    else
+                    {
+                        self.fetchWeather(by: city)
+                    }
+                }
+            })
+            .disposed(by: disposedBag)
+        
+    }
+    
+    private func displayWeather (_ weather: Weather?) {
+        
+        if let weather = weather {
+            self.temperatureLabel.text = "\(weather.temp) ℃"
+            self.humidityLable.text = "\(weather.humidity) ✱"
+        }
+        else {
+            self.temperatureLabel.text = "😱"
+            self.humidityLable.text = "😢"
+        }
+        
     }
 
+    private func fetchWeather (by city: String) {
+        
+        guard let cityEncoded = city.addingPercentEncoding(withAllowedCharacters: .urlHostAllowed),
+              let url = URL.urlForWeatherAPI(city: cityEncoded)
+        else { return }
+        
+        let resource = Resource<WeatherResult>(url: url)
+        
+        URLRequest.load(resource: resource)
+            .observeOn(MainScheduler.instance)
+            .catchErrorJustReturn(WeatherResult.empty)
+            .subscribe(onNext: { result in
+                
+                let weather = result.main
+                self.displayWeather(weather)
+                
+            })
+            .disposed(by: disposedBag)
+        
+    }
 
 }
 
