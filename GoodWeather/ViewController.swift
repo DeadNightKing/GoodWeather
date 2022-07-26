@@ -20,9 +20,10 @@ class ViewController: UIViewController {
     override func viewDidLoad() {
         super.viewDidLoad()
         
-        self.cityNameTextField.rx.value
-            .subscribe (onNext: { city in
-                
+        self.cityNameTextField.rx.controlEvent(.editingDidEndOnExit)
+            .asObservable()
+            .map{ self.cityNameTextField.text }
+            .subscribe(onNext: { city in
                 if let city = city {
                     if city.isEmpty {
                         self.displayWeather(nil)
@@ -34,6 +35,21 @@ class ViewController: UIViewController {
                 }
             })
             .disposed(by: disposedBag)
+        
+//        self.cityNameTextField.rx.value
+//            .subscribe (onNext: { city in
+//
+//                if let city = city {
+//                    if city.isEmpty {
+//                        self.displayWeather(nil)
+//                    }
+//                    else
+//                    {
+//                        self.fetchWeather(by: city)
+//                    }
+//                }
+//            })
+//            .disposed(by: disposedBag)
         
     }
     
@@ -58,17 +74,17 @@ class ViewController: UIViewController {
         
         let resource = Resource<WeatherResult>(url: url)
         
-        URLRequest.load(resource: resource)
+        let search = URLRequest.load(resource: resource)
             .observeOn(MainScheduler.instance)
             .catchErrorJustReturn(WeatherResult.empty)
-            .subscribe(onNext: { result in
-                
-                let weather = result.main
-                self.displayWeather(weather)
-                
-            })
+            
+        search.map { "\($0.main.temp) ℃" }
+            .bind(to: self.temperatureLabel.rx.text)
             .disposed(by: disposedBag)
         
+        search.map { "\($0.main.humidity) ✱" }
+            .bind(to: self.humidityLable.rx.text)
+            .disposed(by: disposedBag)
     }
 
 }
